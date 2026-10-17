@@ -98,6 +98,15 @@
         <div id="fixedCoinInputs"></div>
     </fieldset>
 
+    <!-- 麻痺 -->
+    <fieldset>
+        <legend>麻痺</legend>
+        <label>
+            麻痺:
+            <input id="paralysis" type="number" value="0" min="0" step="1">
+        </label>
+    </fieldset>
+
     <!-- 破裂 -->
     <fieldset>
         <legend>破裂</legend>
@@ -282,7 +291,7 @@
         /* --- コイン式ダメージ計算 --- */
         function calcCoinDamageSequence(finalPowerBase, buffFrame, special, resistFrame,
             coinPower, coinPowerUp, coinCount, sp, mode, totalCriticalBonus,
-            rupturePotency, ruptureCount, poisePotency, poiseCount) {
+            paralysis, rupturePotency, ruptureCount, poisePotency, poiseCount) {
 
             let currentPower = finalPowerBase;
             let coinBonus = coinPower + coinPowerUp;
@@ -291,6 +300,7 @@
 
             let curRuptureCount = ruptureCount;
             let curPoiseCount = poiseCount;
+            let remainingParalysis = paralysis;
 
             for (let i = 1; i <= coinCount; i++) {
 
@@ -312,7 +322,12 @@
                 }
 
                 if (win) {
-                    currentPower += coinBonus;
+                    // 麻痺が残っている場合はコイン威力を加算しない（0にする）
+                    if (remainingParalysis > 0) {
+                        remainingParalysis--;
+                    } else {
+                        currentPower += coinBonus;
+                    }
                 }
 
                 let resistFrameFinal = resistFrame + (crit ? totalCriticalBonus : 0);
@@ -415,6 +430,7 @@
             // モードとパラメータ
             const mode = document.querySelector('input[name="coinMode"]:checked').value;
             const sp = Number(document.getElementById('sp').value);
+            const paralysis = Number(document.getElementById('paralysis').value);
             const rupturePotency = Number(document.getElementById('rupturePotency').value);
             const ruptureCount = Number(document.getElementById('ruptureCount').value);
             const poisePotency = Number(document.getElementById('poisePotency').value);
@@ -432,6 +448,7 @@
                 sp,
                 mode,
                 totalCriticalBonus,
+                paralysis,
                 rupturePotency,
                 ruptureCount,
                 poisePotency,
