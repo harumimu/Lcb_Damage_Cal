@@ -317,7 +317,10 @@
 
                 let resistFrameFinal = resistFrame + (crit ? totalCriticalBonus : 0);
 
-                const base = currentPower * buffFrame + special;
+                // 特殊加算は最後のコイン（i === coinCount）のときのみ適用する
+                const currentSpecial = (i === coinCount) ? special : 0;
+
+                const base = currentPower * buffFrame + currentSpecial;
                 let dmg = Math.max(1, Math.floor(base * resistFrameFinal));
 
                 // 破裂ダメージの加算（破裂回数・威力が残っている場合）
@@ -400,7 +403,6 @@
             const criticalBonus = Number(document.getElementById('criticalBonus').value);
             const critDmgBuff = Number(document.getElementById('critDmgBuff').value);
 
-            // クリティカル威力増加（数値1につき +10% ＝ +0.1）をクリティカル補正値に加算
             const totalCriticalBonus = criticalBonus + (critDmgBuff * 0.1);
 
             const resistFrame =
