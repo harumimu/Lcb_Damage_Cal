@@ -277,18 +277,19 @@
 
                 let resistFrameFinal = resistFrame + (crit ? criticalBonus : 0);
 
-                const base = currentPower * buffFrame + special;
-                const dmg = base * resistFrameFinal;
+const base = currentPower * buffFrame + special;
+// 各コインのダメージを切り捨て
+const dmg = Math.floor(base * resistFrameFinal);
 
-                totalDamage += dmg;
+totalDamage += dmg;
 
-                log.push({
-                    coin: i,
-                    win: win,
-                    crit: crit,
-                    power: currentPower,
-                    damage: dmg
-                });
+log.push({
+    coin: i,
+    win: win,
+    crit: crit,
+    power: currentPower,
+    damage: dmg
+});
             }
 
             return { totalDamage, log };
@@ -373,11 +374,12 @@
             );
 
             // 出力
-            let text = `総ダメージ: ${result.totalDamage.toFixed(2)}\n\n--- コイン詳細 ---\n`;
+            // 出力
+let text = `総ダメージ: ${result.totalDamage}\n\n--- コイン詳細 ---\n`;
 
-            result.log.forEach(entry => {
-                text += `コイン${entry.coin}: ${entry.win ? "表" : "裏"} / クリティカル=${entry.crit ? "あり" : "なし"} / 威力=${entry.power} / ダメージ=${entry.damage.toFixed(2)}\n`;
-            });
+result.log.forEach(entry => {
+    text += `コイン${entry.coin}: ${entry.win ? "表" : "裏"} / クリティカル=${entry.crit ? "あり" : "なし"} / 威力=${entry.power} / ダメージ=${entry.damage}\n`;
+});
 
             document.getElementById('result').textContent = text;
         }
