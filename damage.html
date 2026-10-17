@@ -1,0 +1,389 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ダメージ計算ツール</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 900px;
+            margin: 20px auto;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+        }
+
+        fieldset {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin: 4px 0;
+        }
+
+        input[type="number"] {
+            width: 120px;
+        }
+
+        .result {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-top: 10px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>ダメージ計算ツール</h1>
+
+    <p>最終ダメージ = Σ(各コインダメージ)</p>
+
+    <!-- 最終威力計算 -->
+    <fieldset>
+        <legend>最終威力計算</legend>
+
+        <label>
+            基本威力:
+            <input id="basePower" type="number" value="20" step="1">
+        </label>
+
+        <label>
+            基本威力増加、減少:
+            <input id="basePowerUp" type="number" value="0" step="1">
+        </label>
+
+        <label>
+            コイン数:
+            <input id="coinCount" type="number" value="3" step="1">
+        </label>
+
+        <label>
+            コイン威力:
+            <input id="coinPower" type="number" value="5" step="1">
+        </label>
+
+        <label>
+            コイン威力増加、減少:
+            <input id="coinPowerUp" type="number" value="0" step="1">
+        </label>
+
+        <label>
+            最終威力増加、減少:
+            <input id="finalPowerUp" type="number" value="0" step="1">
+        </label>
+    </fieldset>
+
+    <!-- 精神力 -->
+    <fieldset>
+        <legend>精神力</legend>
+        <label>
+            精神力（-45 ～ 45）:
+            <input id="sp" type="number" value="45" min="-45" max="45" step="1">
+        </label>
+    </fieldset>
+
+    <!-- コイン勝敗モード -->
+    <fieldset>
+        <legend>コイン勝敗モード</legend>
+
+        <label>
+            <input type="radio" name="coinMode" value="random" checked>
+            ランダム（精神力）
+        </label>
+
+        <label>
+            <input type="radio" name="coinMode" value="fixed">
+            固定シミュレーション（手動入力）
+        </label>
+
+        <div id="fixedCoinInputs"></div>
+    </fieldset>
+
+    <!-- 特殊加算 -->
+    <fieldset>
+        <legend>特殊加算（《なんでも料理できるさ》）</legend>
+        <label>
+            特殊加算値:
+            <input id="special" type="number" value="0" step="1">
+        </label>
+    </fieldset>
+
+    <!-- ステータス補正 -->
+    <fieldset>
+        <legend>ステータス補正（保護・脆弱・増加・減少）</legend>
+
+        <label>
+            保護、脆弱 (-10〜10)(+は保護、-は脆弱):
+            <input id="protect" type="number" value="0" min="-10" max="10">
+        </label>
+
+        <label>
+            ダメージ量(-10〜10):
+            <input id="dmgUp" type="number" value="0" min="-10" max="10">
+        </label>
+    </fieldset>
+
+    <!-- バフ枠 -->
+    <fieldset>
+        <legend>バフ枠</legend>
+
+        <label>
+            パッシブ:
+            <input id="passiveBuff" type="number" value="0" step="0.01">
+        </label>
+        <label>
+            ギフト:
+            <input id="giftBuff" type="number" value="0" step="0.01">
+        </label>
+        <label>
+            スキル効果:
+            <input id="skillBuff" type="number" value="0" step="0.01">
+        </label>
+        <label>
+            その他(+α):
+            <input id="extraBuff" type="number" value="0" step="0.01">
+        </label>
+    </fieldset>
+
+    <!-- 耐性枠 -->
+    <fieldset>
+        <legend>耐性枠</legend>
+
+        <h3>耐性補正</h3>
+        <label>
+            攻撃タイプ耐性倍率:
+            <input id="typeResist" type="number" value="1.0" step="0.25">
+        </label>
+        <label>
+            罪悪属性耐性倍率:
+            <input id="sinResist" type="number" value="1.0" step="0.25">
+        </label>
+
+        <h3>レベル差補正</h3>
+        <label>
+            攻撃側レベル:
+            <input id="atkLevel" type="number" value="30" step="1">
+        </label>
+        <label>
+            防御側レベル:
+            <input id="defLevel" type="number" value="30" step="1">
+        </label>
+
+        <h3>マッチ回数・観察レベル</h3>
+        <label>
+            マッチ回数:
+            <input id="matchCount" type="number" value="0" step="1">
+        </label>
+        <label>
+            観察レベル:
+            <input id="observeLevel" type="number" value="0" step="1">
+        </label>
+        <label>
+            <input id="observeEnabled" type="checkbox" checked>
+            観察レベル補正を有効にする
+        </label>
+
+        <h3>クリティカル</h3>
+        <label>
+            <input id="isCritical" type="checkbox">
+            クリティカル発生
+        </label>
+        <label>
+            クリティカル補正値（通常 0.2）:
+            <input id="criticalBonus" type="number" value="0.2" step="0.01">
+        </label>
+    </fieldset>
+
+    <button onclick="calc()">計算する</button>
+
+    <div class="result" id="result"></div>
+
+    <script>
+        /* --- 勝率計算（精神力） --- */
+        function getCoinWinRate(sp) {
+            return Math.max(5, Math.min(95, sp + 50)) / 100;
+        }
+
+        function tossCoin(sp) {
+            const winRate = getCoinWinRate(sp);
+            return Math.random() < winRate;
+        }
+
+        /* --- 耐性補正 --- */
+        function resistToCorrection(mult) {
+            return mult >= 1.0 ? (mult - 1.0) : (mult - 1.0) / 2.0;
+        }
+
+        /* --- 固定モードの勝敗・クリティカル入力欄生成 --- */
+        function updateFixedCoinInputs() {
+            const coinCount = Number(document.getElementById('coinCount').value);
+            const container = document.getElementById('fixedCoinInputs');
+
+            container.innerHTML = "";
+
+            const mode = document.querySelector('input[name="coinMode"]:checked').value;
+            if (mode !== "fixed") return;
+
+            for (let i = 1; i <= coinCount; i++) {
+                const row = document.createElement("div");
+                row.innerHTML = `
+              コイン${i}：
+              <select id="coinResult${i}">
+                <option value="win">勝ち</option>
+                <option value="lose">負け</option>
+              </select>
+              クリティカル：
+              <select id="coinCritical${i}">
+                <option value="no">なし</option>
+                <option value="yes">あり</option>
+              </select>
+            `;
+                container.appendChild(row);
+            }
+        }
+
+        document.getElementById('coinCount').addEventListener('change', updateFixedCoinInputs);
+        document.querySelectorAll('input[name="coinMode"]').forEach(el => {
+            el.addEventListener('change', updateFixedCoinInputs);
+        });
+
+        /* --- コイン式ダメージ計算 --- */
+        function calcCoinDamageSequence(finalPowerBase, buffFrame, special, resistFrame,
+            coinPower, coinPowerUp, coinCount, sp, mode, criticalBonus) {
+
+            let currentPower = finalPowerBase;
+            let coinBonus = coinPower + coinPowerUp;
+            let totalDamage = 0;
+            let log = [];
+
+            for (let i = 1; i <= coinCount; i++) {
+
+                let win;
+                let crit;
+
+                if (mode === "fixed") {
+                    win = (document.getElementById(`coinResult${i}`).value === "win");
+                    crit = (document.getElementById(`coinCritical${i}`).value === "yes");
+                } else {
+                    win = tossCoin(sp);
+                    crit = document.getElementById('isCritical').checked;
+                }
+
+                if (win) {
+                    currentPower += coinBonus;
+                }
+
+                let resistFrameFinal = resistFrame + (crit ? criticalBonus : 0);
+
+                const base = currentPower * buffFrame + special;
+                const dmg = base * resistFrameFinal;
+
+                totalDamage += dmg;
+
+                log.push({
+                    coin: i,
+                    win: win,
+                    crit: crit,
+                    power: currentPower,
+                    damage: dmg
+                });
+            }
+
+            return { totalDamage, log };
+        }
+
+        /* --- メイン計算 --- */
+        function calc() {
+            // 最終威力基礎
+            const basePower = Number(document.getElementById('basePower').value);
+            const basePowerUp = Number(document.getElementById('basePowerUp').value);
+            const coinCount = Number(document.getElementById('coinCount').value);
+            const coinPower = Number(document.getElementById('coinPower').value);
+            const coinPowerUp = Number(document.getElementById('coinPowerUp').value);
+            const finalPowerUp = Number(document.getElementById('finalPowerUp').value);
+
+            const finalPowerBase =
+                basePower +
+                basePowerUp +
+                finalPowerUp;
+
+            // 特殊加算
+            const special = Number(document.getElementById('special').value);
+
+            // ステータス補正（保護・脆弱・増加・減少）
+            const protect = Number(document.getElementById('protect').value);
+            const vulnerable = Number(document.getElementById('vulnerable').value);
+            const dmgUp = Number(document.getElementById('dmgUp').value);
+            const dmgDown = Number(document.getElementById('dmgDown').value);
+
+            const protectVulnCorrection = 0.1 * (vulnerable - protect);
+            const dmgUpDownCorrection = 0.1 * (dmgUp - dmgDown);
+
+            const statusCorrection = protectVulnCorrection + dmgUpDownCorrection;
+
+            // バフ枠
+            const buffFrame =
+                1 +
+                statusCorrection +
+                Number(document.getElementById('passiveBuff').value) +
+                Number(document.getElementById('giftBuff').value) +
+                Number(document.getElementById('skillBuff').value) +
+                Number(document.getElementById('extraBuff').value);
+
+            // 耐性枠
+            const typeCorrection = resistToCorrection(Number(document.getElementById('typeResist').value));
+            const sinCorrection = resistToCorrection(Number(document.getElementById('sinResist').value));
+            const resistCorrection = typeCorrection + sinCorrection;
+
+            const atkLevel = Number(document.getElementById('atkLevel').value);
+            const defLevel = Number(document.getElementById('defLevel').value);
+            const levelDiff = atkLevel - defLevel;
+            const levelCorrection =
+                levelDiff === 0 ? 0 : levelDiff / (25 + Math.abs(levelDiff));
+
+            const matchCorrection = 0.03 * Number(document.getElementById('matchCount').value);
+            const observeEnabled = document.getElementById('observeEnabled').checked;
+            const observeCorrection = observeEnabled ? 0.03 * Number(document.getElementById('observeLevel').value) : 0;
+
+            const isCritical = document.getElementById('isCritical').checked;
+            const criticalBonus = Number(document.getElementById('criticalBonus').value);
+
+            const resistFrame =
+                1 +
+                resistCorrection +
+                levelCorrection +
+                matchCorrection +
+                observeCorrection;
+
+            // モード
+            const mode = document.querySelector('input[name="coinMode"]:checked').value;
+            const sp = Number(document.getElementById('sp').value);
+
+            // コイン式ダメージ計算
+            const result = calcCoinDamageSequence(
+                finalPowerBase,
+                buffFrame,
+                special,
+                resistFrame,
+                coinPower,
+                coinPowerUp,
+                coinCount,
+                sp,
+                mode,
+                criticalBonus
+            );
+
+            // 出力
+            let text = `総ダメージ: ${result.totalDamage.toFixed(2)}\n\n--- コイン詳細 ---\n`;
+
+            result.log.forEach(entry => {
+                text += `コイン${entry.coin}: ${entry.win ? "勝ち" : "負け"} / クリティカル=${entry.crit ? "あり" : "なし"} / 威力=${entry.power} / ダメージ=${entry.damage.toFixed(2)}\n`;
+            });
+
+            document.getElementById('result').textContent = text;
+        }
+    </script>
+</body>
+</html>
