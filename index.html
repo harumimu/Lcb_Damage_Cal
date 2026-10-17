@@ -98,6 +98,31 @@
         <div id="fixedCoinInputs"></div>
     </fieldset>
 
+    <!-- 体力・混乱区間 -->
+    <fieldset>
+        <legend>体力・混乱区間</legend>
+        <label>
+            最大体力:
+            <input id="maxHp" type="number" value="200" min="1" step="1">
+        </label>
+        <label>
+            混乱区間1 (%):
+            <input id="threshold1" type="number" value="75" min="0" max="100" step="1">
+        </label>
+        <label>
+            混乱区間2 (%):
+            <input id="threshold2" type="number" value="50" min="0" max="100" step="1">
+        </label>
+        <label>
+            混乱区間3 (%):
+            <input id="threshold3" type="number" value="25" min="0" max="100" step="1">
+        </label>
+        <label>
+            <input id="immortalMode" type="checkbox">
+            敵を死なないようにする（HPが0以下でも継続）
+        </label>
+    </fieldset>
+
     <!-- 麻痺 -->
     <fieldset>
         <legend>麻痺</legend>
@@ -291,7 +316,8 @@
         /* --- コイン式ダメージ計算 --- */
         function calcCoinDamageSequence(finalPowerBase, buffFrame, special, resistFrame,
             coinPower, coinPowerUp, coinCount, sp, mode, totalCriticalBonus,
-            paralysis, rupturePotency, ruptureCount, poisePotency, poiseCount) {
+            paralysis, rupturePotency, ruptureCount, poisePotency, poiseCount,
+            maxHp, t1, t2, t3, immortalMode) {
 
             let currentPower = finalPowerBase;
             let coinBonus = coinPower + coinPowerUp;
@@ -302,7 +328,13 @@
             let curPoiseCount = poiseCount;
             let remainingParalysis = paralysis;
 
+            let currentHp = maxHp;
+            let hpList = [t1, t2, t3].filter(t => t > 0).sort((a, b) => b - a);
+            let triggeredThresholds = new Set();
+            let isDefeated = false;
+
             for (let i = 1; i <= coinCount; i++) {
+                if (isDefeated) break;
 
                 let win;
                 let crit;
@@ -312,7 +344,6 @@
                     crit = (document.getElementById(`coinCritical${i}`).value === "yes");
                 } else {
                     win = tossCoin(sp);
-                    // 呼吸がある場合は呼吸威力に応じたクリティカル率（1につき5%）を適用
                     if (poisePotency > 0 && curPoiseCount > 0) {
                         const poiseCritRate = Math.min(1.0, poisePotency * 0.05);
                         crit = Math.random() < poiseCritRate;
@@ -322,7 +353,6 @@
                 }
 
                 if (win) {
-                    // 麻痺が残っている場合はコイン威力を加算しない（0にする）
                     if (remainingParalysis > 0) {
                         remainingParalysis--;
                     } else {
@@ -332,13 +362,10 @@
 
                 let resistFrameFinal = resistFrame + (crit ? totalCriticalBonus : 0);
 
-                // 特殊加算は最後のコイン（i === coinCount）のときのみ適用する
                 const currentSpecial = (i === coinCount) ? special : 0;
-
                 const base = currentPower * buffFrame + currentSpecial;
                 let dmg = Math.max(1, Math.floor(base * resistFrameFinal));
 
-                // 破裂ダメージの加算（破裂回数・威力が残っている場合）
                 let ruptureDmg = 0;
                 if (curRuptureCount > 0 && rupturePotency > 0) {
                     ruptureDmg = rupturePotency;
@@ -346,12 +373,34 @@
                     curRuptureCount = Math.max(0, curRuptureCount - 1);
                 }
 
-                // クリティカル発生時、呼吸回数を消費
                 if (crit && curPoiseCount > 0) {
                     curPoiseCount = Math.max(0, curPoiseCount - 1);
                 }
 
                 totalDamage += dmg;
+                let prevHp = currentHp;
+                
+                if (immortalMode) {
+                    currentHp -= dmg; // HPがマイナスになることを許容
+                } else {
+                    currentHp = Math.max(0, currentHp - dmg);
+                }
+
+                let statusMsg = [];
+                let hpPercent = (currentHp / maxHp) * 100;
+                let prevHpPercent = (prevHp / maxHp) * 100;
+
+                hpList.forEach(t => {
+                    if (!triggeredThresholds.has(t) && prevHpPercent > t && hpPercent <= t) {
+                        triggeredThresholds.add(t);
+                        statusMsg.push(`【混乱】(区間${t}%)`);
+                    }
+                });
+
+                if (!immortalMode && currentHp === 0 && prevHp > 0) {
+                    statusMsg.push(`【撃破】`);
+                    isDefeated = true;
+                }
 
                 log.push({
                     coin: i,
@@ -359,7 +408,9 @@
                     crit: crit,
                     power: currentPower,
                     damage: dmg,
-                    ruptureDamage: ruptureDmg
+                    ruptureDamage: ruptureDmg,
+                    remainingHp: currentHp,
+                    statusMsg: statusMsg.join(" ")
                 });
             }
 
@@ -368,7 +419,6 @@
 
         /* --- メイン計算 --- */
         function calc() {
-            // 最終威力基礎
             const basePower = Number(document.getElementById('basePower').value);
             const basePowerUp = Number(document.getElementById('basePowerUp').value);
             const coinCount = Number(document.getElementById('coinCount').value);
@@ -376,21 +426,13 @@
             const coinPowerUp = Number(document.getElementById('coinPowerUp').value);
             const finalPowerUp = Number(document.getElementById('finalPowerUp').value);
 
-            const finalPowerBase =
-                basePower +
-                basePowerUp +
-                finalPowerUp;
-
-            // 特殊加算
+            const finalPowerBase = basePower + basePowerUp + finalPowerUp;
             const special = Number(document.getElementById('special').value);
 
-            // ステータス補正（保護・脆弱、ダメージ量）
             const protect = Number(document.getElementById('protect').value);
             const dmgUp = Number(document.getElementById('dmgUp').value);
-
             const statusCorrection = (0.1 * dmgUp) - (0.1 * protect);
 
-            // バフ枠
             const buffFrame =
                 1 +
                 statusCorrection +
@@ -399,7 +441,6 @@
                 Number(document.getElementById('skillBuff').value) +
                 Number(document.getElementById('extraBuff').value)) / 100;
 
-            // 耐性枠
             const typeCorrection = resistToCorrection(Number(document.getElementById('typeResist').value));
             const sinCorrection = resistToCorrection(Number(document.getElementById('sinResist').value));
             const resistCorrection = typeCorrection + sinCorrection;
@@ -407,8 +448,7 @@
             const atkLevel = Number(document.getElementById('atkLevel').value);
             const defLevel = Number(document.getElementById('defLevel').value);
             const levelDiff = atkLevel - defLevel;
-            const levelCorrection =
-                levelDiff === 0 ? 0 : levelDiff / (25 + Math.abs(levelDiff));
+            const levelCorrection = levelDiff === 0 ? 0 : levelDiff / (25 + Math.abs(levelDiff));
 
             const matchCorrection = 0.03 * Number(document.getElementById('matchCount').value);
             const observeEnabled = document.getElementById('observeEnabled').checked;
@@ -417,7 +457,6 @@
             const isCritical = document.getElementById('isCritical').checked;
             const criticalBonus = Number(document.getElementById('criticalBonus').value);
             const critDmgBuff = Number(document.getElementById('critDmgBuff').value);
-
             const totalCriticalBonus = criticalBonus + (critDmgBuff * 0.1);
 
             const resistFrame =
@@ -427,7 +466,6 @@
                 matchCorrection +
                 observeCorrection;
 
-            // モードとパラメータ
             const mode = document.querySelector('input[name="coinMode"]:checked').value;
             const sp = Number(document.getElementById('sp').value);
             const paralysis = Number(document.getElementById('paralysis').value);
@@ -436,7 +474,12 @@
             const poisePotency = Number(document.getElementById('poisePotency').value);
             const poiseCount = Number(document.getElementById('poiseCount').value);
 
-            // コイン式ダメージ計算
+            const maxHp = Number(document.getElementById('maxHp').value);
+            const t1 = Number(document.getElementById('threshold1').value);
+            const t2 = Number(document.getElementById('threshold2').value);
+            const t3 = Number(document.getElementById('threshold3').value);
+            const immortalMode = document.getElementById('immortalMode').checked;
+
             const result = calcCoinDamageSequence(
                 finalPowerBase,
                 buffFrame,
@@ -452,16 +495,24 @@
                 rupturePotency,
                 ruptureCount,
                 poisePotency,
-                poiseCount
+                poiseCount,
+                maxHp,
+                t1,
+                t2,
+                t3,
+                immortalMode
             );
 
-            // 出力
             let text = `総ダメージ: ${result.totalDamage}\n\n--- コイン詳細 ---\n`;
 
             result.log.forEach(entry => {
                 text += `コイン${entry.coin}: ${entry.win ? "表" : "裏"} / クリティカル=${entry.crit ? "あり" : "なし"} / 威力=${entry.power} / ダメージ=${entry.damage}`;
                 if (entry.ruptureDamage > 0) {
                     text += ` (内 破裂=${entry.ruptureDamage})`;
+                }
+                text += ` / 残りHP=${entry.remainingHp}`;
+                if (entry.statusMsg) {
+                    text += ` ${entry.statusMsg}`;
                 }
                 text += `\n`;
             });
@@ -471,3 +522,4 @@
     </script>
 </body>
 </html>
+```[cite: 2]
