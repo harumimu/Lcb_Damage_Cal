@@ -1,4 +1,9 @@
-﻿<!DOCTYPE html>
+ご要望に合わせて、「脆弱」や「ダメージ量減少（dmgDown）」の独立した変数を削除し、既存の入力欄（`protect` と `dmgUp`）の符号によって増減を処理するように修正しました。また、固定シミュレーションモードの入力欄が正常に初期表示されるよう初期化処理も追加しています。
+
+修正済みの完全なコードは以下の通りです。
+
+```html
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -246,6 +251,9 @@
             el.addEventListener('change', updateFixedCoinInputs);
         });
 
+        // 初期化時にも実行
+        updateFixedCoinInputs();
+
         /* --- コイン式ダメージ計算 --- */
         function calcCoinDamageSequence(finalPowerBase, buffFrame, special, resistFrame,
             coinPower, coinPowerUp, coinCount, sp, mode, criticalBonus) {
@@ -309,16 +317,13 @@
             // 特殊加算
             const special = Number(document.getElementById('special').value);
 
-            // ステータス補正（保護・脆弱・増加・減少）
+            // ステータス補正（保護・脆弱、ダメージ量）
             const protect = Number(document.getElementById('protect').value);
-            const vulnerable = Number(document.getElementById('vulnerable').value);
             const dmgUp = Number(document.getElementById('dmgUp').value);
-            const dmgDown = Number(document.getElementById('dmgDown').value);
 
-            const protectVulnCorrection = 0.1 * (vulnerable - protect);
-            const dmgUpDownCorrection = 0.1 * (dmgUp - dmgDown);
-
-            const statusCorrection = protectVulnCorrection + dmgUpDownCorrection;
+            // protect: 正なら保護（ダメージ減少=-）、負なら脆弱（ダメージ増加=+）
+            // dmgUp: 正なら増加、負なら減少
+            const statusCorrection = (0.1 * dmgUp) - (0.1 * protect);
 
             // バフ枠
             const buffFrame =
@@ -384,3 +389,5 @@
     </script>
 </body>
 </html>
+
+```
