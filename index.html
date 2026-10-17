@@ -128,19 +128,19 @@
 
         <label>
             パッシブ:
-            <input id="passiveBuff" type="number" value="0" step="0.01">
+            <input id="passiveBuff" type="number" value="0" step="1">
         </label>
         <label>
             ギフト:
-            <input id="giftBuff" type="number" value="0" step="0.01">
+            <input id="giftBuff" type="number" value="0" step="1">
         </label>
         <label>
             スキル効果:
-            <input id="skillBuff" type="number" value="0" step="0.01">
+            <input id="skillBuff" type="number" value="0" step="1">
         </label>
         <label>
             その他(+α):
-            <input id="extraBuff" type="number" value="0" step="0.01">
+            <input id="extraBuff" type="number" value="0" step="1">
         </label>
     </fieldset>
 
@@ -160,11 +160,11 @@
 
         <h3>レベル差補正</h3>
         <label>
-            攻撃側レベル:
+            攻撃レベル:
             <input id="atkLevel" type="number" value="30" step="1">
         </label>
         <label>
-            防御側レベル:
+            防御レベル:
             <input id="defLevel" type="number" value="30" step="1">
         </label>
 
@@ -228,8 +228,8 @@
                 row.innerHTML = `
               コイン${i}：
               <select id="coinResult${i}">
-                <option value="win">勝ち</option>
-                <option value="lose">負け</option>
+                <option value="win">表</option>
+                <option value="lose">裏</option>
               </select>
               クリティカル：
               <select id="coinCritical${i}">
@@ -324,10 +324,10 @@
             const buffFrame =
                 1 +
                 statusCorrection +
-                Number(document.getElementById('passiveBuff').value) +
+                (Number(document.getElementById('passiveBuff').value) +
                 Number(document.getElementById('giftBuff').value) +
                 Number(document.getElementById('skillBuff').value) +
-                Number(document.getElementById('extraBuff').value);
+                Number(document.getElementById('extraBuff').value))/100;
 
             // 耐性枠
             const typeCorrection = resistToCorrection(Number(document.getElementById('typeResist').value));
@@ -376,7 +376,7 @@
             let text = `総ダメージ: ${result.totalDamage.toFixed(2)}\n\n--- コイン詳細 ---\n`;
 
             result.log.forEach(entry => {
-                text += `コイン${entry.coin}: ${entry.win ? "勝ち" : "負け"} / クリティカル=${entry.crit ? "あり" : "なし"} / 威力=${entry.power} / ダメージ=${entry.damage.toFixed(2)}\n`;
+                text += `コイン${entry.coin}: ${entry.win ? "表" : "裏"} / クリティカル=${entry.crit ? "あり" : "なし"} / 威力=${entry.power} / ダメージ=${entry.damage.toFixed(2)}\n`;
             });
 
             document.getElementById('result').textContent = text;
