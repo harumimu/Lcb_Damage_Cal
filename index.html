@@ -98,6 +98,32 @@
         <div id="fixedCoinInputs"></div>
     </fieldset>
 
+    <!-- 破裂 -->
+    <fieldset>
+        <legend>破裂</legend>
+        <label>
+            破裂威力:
+            <input id="rupturePotency" type="number" value="0" min="0" step="1">
+        </label>
+        <label>
+            破裂回数:
+            <input id="ruptureCount" type="number" value="0" min="0" step="1">
+        </label>
+    </fieldset>
+
+    <!-- 呼吸 -->
+    <fieldset>
+        <legend>呼吸</legend>
+        <label>
+            呼吸威力:
+            <input id="poisePotency" type="number" value="0" min="0" step="1">
+        </label>
+        <label>
+            呼吸回数:
+            <input id="poiseCount" type="number" value="0" min="0" step="1">
+        </label>
+    </fieldset>
+
     <!-- 特殊加算 -->
     <fieldset>
         <legend>特殊加算（《なんでも料理できるさ》）</legend>
@@ -185,7 +211,7 @@
         <h3>クリティカル</h3>
         <label>
             <input id="isCritical" type="checkbox">
-            クリティカル発生
+            クリティカル発生（常時）
         </label>
         <label>
             クリティカル補正値（通常 0.2）:
@@ -250,14 +276,17 @@
         updateFixedCoinInputs();
 
         /* --- コイン式ダメージ計算 --- */
-/* --- コイン式ダメージ計算 --- */
         function calcCoinDamageSequence(finalPowerBase, buffFrame, special, resistFrame,
-            coinPower, coinPowerUp, coinCount, sp, mode, criticalBonus) {
+            coinPower, coinPowerUp, coinCount, sp, mode, criticalBonus,
+            rupturePotency, ruptureCount, poisePotency, poiseCount) {
 
             let currentPower = finalPowerBase;
             let coinBonus = coinPower + coinPowerUp;
             let totalDamage = 0;
             let log = [];
+
+            let curRuptureCount = ruptureCount;
+            let curPoiseCount = poiseCount;
 
             for (let i = 1; i <= coinCount; i++) {
 
@@ -269,7 +298,13 @@
                     crit = (document.getElementById(`coinCritical${i}`).value === "yes");
                 } else {
                     win = tossCoin(sp);
-                    crit = document.getElementById('isCritical').checked;
+                    // 呼吸がある場合は呼吸威力に応じたクリティカル率（1につき5%）を適用
+                    if (poisePotency > 0 && curPoiseCount > 0) {
+                        const poiseCritRate = Math.min(1.0, poisePotency * 0.05);
+                        crit = Math.random() < poiseCritRate;
+                    } else {
+                        crit = document.getElementById('isCritical').checked;
+                    }
                 }
 
                 if (win) {
@@ -279,8 +314,20 @@
                 let resistFrameFinal = resistFrame + (crit ? criticalBonus : 0);
 
                 const base = currentPower * buffFrame + special;
-                // 各コインのダメージを切り捨て、1未満の場合は1にする
-                const dmg = Math.max(1, Math.floor(base * resistFrameFinal));
+                let dmg = Math.max(1, Math.floor(base * resistFrameFinal));
+
+                // 破裂ダメージの加算（破裂回数・威力が残っている場合）
+                let ruptureDmg = 0;
+                if (curRuptureCount > 0 && rupturePotency > 0) {
+                    ruptureDmg = rupturePotency; // 耐性倍率は関係なく、破裂威力がそのままダメージ
+                    dmg += ruptureDmg;
+                    curRuptureCount = Math.max(0, curRuptureCount - 1); // 回数のみ減少、威力は減らない
+                }
+
+                // クリティカル発生時、呼吸回数を消費
+                if (crit && curPoiseCount > 0) {
+                    curPoiseCount = Math.max(0, curPoiseCount - 1);
+                }
 
                 totalDamage += dmg;
 
@@ -289,12 +336,9 @@
                     win: win,
                     crit: crit,
                     power: currentPower,
-                    damage: dmg
+                    damage: dmg,
+                    ruptureDamage: ruptureDmg
                 });
-            }
-
-            return { totalDamage, log };
-        }
             }
 
             return { totalDamage, log };
@@ -322,8 +366,6 @@
             const protect = Number(document.getElementById('protect').value);
             const dmgUp = Number(document.getElementById('dmgUp').value);
 
-            // protect: 正なら保護（ダメージ減少=-）、負なら脆弱（ダメージ増加=+）
-            // dmgUp: 正なら増加、負なら減少
             const statusCorrection = (0.1 * dmgUp) - (0.1 * protect);
 
             // バフ枠
@@ -333,7 +375,7 @@
                 (Number(document.getElementById('passiveBuff').value) +
                 Number(document.getElementById('giftBuff').value) +
                 Number(document.getElementById('skillBuff').value) +
-                Number(document.getElementById('extraBuff').value))/100;
+                Number(document.getElementById('extraBuff').value)) / 100;
 
             // 耐性枠
             const typeCorrection = resistToCorrection(Number(document.getElementById('typeResist').value));
@@ -360,9 +402,13 @@
                 matchCorrection +
                 observeCorrection;
 
-            // モード
+            // モードとパラメータ
             const mode = document.querySelector('input[name="coinMode"]:checked').value;
             const sp = Number(document.getElementById('sp').value);
+            const rupturePotency = Number(document.getElementById('rupturePotency').value);
+            const ruptureCount = Number(document.getElementById('ruptureCount').value);
+            const poisePotency = Number(document.getElementById('poisePotency').value);
+            const poiseCount = Number(document.getElementById('poiseCount').value);
 
             // コイン式ダメージ計算
             const result = calcCoinDamageSequence(
@@ -375,19 +421,27 @@
                 coinCount,
                 sp,
                 mode,
-                criticalBonus
+                criticalBonus,
+                rupturePotency,
+                ruptureCount,
+                poisePotency,
+                poiseCount
             );
 
             // 出力
-            // 出力
-let text = `総ダメージ: ${result.totalDamage}\n\n--- コイン詳細 ---\n`;
+            let text = `総ダメージ: ${result.totalDamage}\n\n--- コイン詳細 ---\n`;
 
-result.log.forEach(entry => {
-    text += `コイン${entry.coin}: ${entry.win ? "表" : "裏"} / クリティカル=${entry.crit ? "あり" : "なし"} / 威力=${entry.power} / ダメージ=${entry.damage}\n`;
-});
+            result.log.forEach(entry => {
+                text += `コイン${entry.coin}: ${entry.win ? "表" : "裏"} / クリティカル=${entry.crit ? "あり" : "なし"} / 威力=${entry.power} / ダメージ=${entry.damage}`;
+                if (entry.ruptureDamage > 0) {
+                    text += ` (内 破裂=${entry.ruptureDamage})`;
+                }
+                text += `\n`;
+            });
 
             document.getElementById('result').textContent = text;
         }
     </script>
 </body>
 </html>
+```[cite: 2]
