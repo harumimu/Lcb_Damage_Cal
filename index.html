@@ -250,6 +250,7 @@
         updateFixedCoinInputs();
 
         /* --- コイン式ダメージ計算 --- */
+/* --- コイン式ダメージ計算 --- */
         function calcCoinDamageSequence(finalPowerBase, buffFrame, special, resistFrame,
             coinPower, coinPowerUp, coinCount, sp, mode, criticalBonus) {
 
@@ -277,19 +278,23 @@
 
                 let resistFrameFinal = resistFrame + (crit ? criticalBonus : 0);
 
-const base = currentPower * buffFrame + special;
-// 各コインのダメージを切り捨て
-const dmg = Math.floor(base * resistFrameFinal);
+                const base = currentPower * buffFrame + special;
+                // 各コインのダメージを切り捨て、1未満の場合は1にする
+                const dmg = Math.max(1, Math.floor(base * resistFrameFinal));
 
-totalDamage += dmg;
+                totalDamage += dmg;
 
-log.push({
-    coin: i,
-    win: win,
-    crit: crit,
-    power: currentPower,
-    damage: dmg
-});
+                log.push({
+                    coin: i,
+                    win: win,
+                    crit: crit,
+                    power: currentPower,
+                    damage: dmg
+                });
+            }
+
+            return { totalDamage, log };
+        }
             }
 
             return { totalDamage, log };
