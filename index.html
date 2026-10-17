@@ -168,6 +168,10 @@
             その他(+α):
             <input id="extraBuff" type="number" value="0" step="1">
         </label>
+        <label>
+            クリティカル威力増加:
+            <input id="critDmgBuff" type="number" value="0" step="1">
+        </label>
     </fieldset>
 
     <!-- 耐性枠 -->
@@ -277,7 +281,7 @@
 
         /* --- コイン式ダメージ計算 --- */
         function calcCoinDamageSequence(finalPowerBase, buffFrame, special, resistFrame,
-            coinPower, coinPowerUp, coinCount, sp, mode, criticalBonus,
+            coinPower, coinPowerUp, coinCount, sp, mode, totalCriticalBonus,
             rupturePotency, ruptureCount, poisePotency, poiseCount) {
 
             let currentPower = finalPowerBase;
@@ -311,7 +315,7 @@
                     currentPower += coinBonus;
                 }
 
-                let resistFrameFinal = resistFrame + (crit ? criticalBonus : 0);
+                let resistFrameFinal = resistFrame + (crit ? totalCriticalBonus : 0);
 
                 const base = currentPower * buffFrame + special;
                 let dmg = Math.max(1, Math.floor(base * resistFrameFinal));
@@ -319,9 +323,9 @@
                 // 破裂ダメージの加算（破裂回数・威力が残っている場合）
                 let ruptureDmg = 0;
                 if (curRuptureCount > 0 && rupturePotency > 0) {
-                    ruptureDmg = rupturePotency; // 耐性倍率は関係なく、破裂威力がそのままダメージ
+                    ruptureDmg = rupturePotency;
                     dmg += ruptureDmg;
-                    curRuptureCount = Math.max(0, curRuptureCount - 1); // 回数のみ減少、威力は減らない
+                    curRuptureCount = Math.max(0, curRuptureCount - 1);
                 }
 
                 // クリティカル発生時、呼吸回数を消費
@@ -394,6 +398,10 @@
 
             const isCritical = document.getElementById('isCritical').checked;
             const criticalBonus = Number(document.getElementById('criticalBonus').value);
+            const critDmgBuff = Number(document.getElementById('critDmgBuff').value);
+
+            // クリティカル威力増加（数値1につき +10% ＝ +0.1）をクリティカル補正値に加算
+            const totalCriticalBonus = criticalBonus + (critDmgBuff * 0.1);
 
             const resistFrame =
                 1 +
@@ -421,7 +429,7 @@
                 coinCount,
                 sp,
                 mode,
-                criticalBonus,
+                totalCriticalBonus,
                 rupturePotency,
                 ruptureCount,
                 poisePotency,
