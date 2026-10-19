@@ -181,7 +181,7 @@
         <legend>特殊加算</legend>
         <label>
             <input id="cookingEnabled" type="checkbox">
-            《なんでも料理できるさ》（(最大体力 - 現在体力) の 5% をコインごとに再計算して威力に加算）
+            《なんでも料理できるさ》（(最大体力 - 現在体力) の 5% をコインごとに再計算して威力に加算 / 最大20）
         </label>
     </fieldset>
 
@@ -416,11 +416,11 @@
 
                 let resistFrameFinal = resistFrame + (crit ? totalCriticalBonus : 0);
 
-                // コインごとの開始時HPを基に《なんでも料理できるさ》の特殊加算を再計算
+                // コインごとの開始時HPを基に《なんでも料理できるさ》の特殊加算を再計算（上限20）
                 let cookingSpecial = 0;
                 if (cookingEnabled) {
                     const missingHp = Math.max(0, maxHp - currentHp);
-                    cookingSpecial = Math.floor(missingHp * 0.05);
+                    cookingSpecial = Math.min(20, Math.floor(missingHp * 0.05));
                 }
 
                 const base = (currentPower + cookingSpecial) * buffFrame;
