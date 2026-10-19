@@ -120,16 +120,16 @@
             <input id="maxHp" type="number" value="200" min="1" step="1">
         </label>
         <label>
-            混乱区間1 (%):
-            <input id="threshold1" type="number" value="75" min="0" max="100" step="1">
+            混乱区間1 (HP):
+            <input id="threshold1" type="number" value="150" min="0" step="1">
         </label>
         <label>
-            混乱区間2 (%):
-            <input id="threshold2" type="number" value="50" min="0" max="100" step="1">
+            混乱区間2 (HP):
+            <input id="threshold2" type="number" value="100" min="0" step="1">
         </label>
         <label>
-            混乱区間3 (%):
-            <input id="threshold3" type="number" value="25" min="0" max="100" step="1">
+            混乱区間3 (HP):
+            <input id="threshold3" type="number" value="50" min="0" step="1">
         </label>
         <label>
             <input id="immortalMode" type="checkbox">
@@ -196,9 +196,9 @@
         </label>
     </fieldset>
 
-    <!-- コイン別バフ枠 -->
+    <!-- コイン別バフ枠・固定ダメージ -->
     <fieldset>
-        <legend>コイン別バフ枠</legend>
+        <legend>コイン別バフ枠・固定ダメージ</legend>
         <div class="bulk-buff-box">
             <strong>一括変更</strong>
             <label>パッシブ一括: <input id="bulkPassive" type="number" value="0" step="1"></label>
@@ -206,6 +206,7 @@
             <label>スキル効果一括: <input id="bulkSkill" type="number" value="0" step="1"></label>
             <label>その他(+α)一括: <input id="bulkExtra" type="number" value="0" step="1"></label>
             <label>クリティカル威力増加一括: <input id="bulkCrit" type="number" value="0" step="1"></label>
+            <label>固定ダメージ一括: <input id="bulkFixedDmg" type="number" value="0" step="1"></label>
             <button type="button" onclick="applyBulkBuffs()">すべてのコインに一括適用</button>
         </div>
         <div id="coinBuffInputs"></div>
@@ -312,12 +313,13 @@
                 const buffRow = document.createElement("div");
                 buffRow.className = "coin-buff-group";
                 buffRow.innerHTML = `
-                    <strong>コイン${i} バフ枠</strong>
+                    <strong>コイン${i} バフ枠・追加効果</strong>
                     <label>パッシブ: <input id="passiveBuff${i}" type="number" value="0" step="1"></label>
                     <label>ギフト: <input id="giftBuff${i}" type="number" value="0" step="1"></label>
                     <label>スキル効果: <input id="skillBuff${i}" type="number" value="0" step="1"></label>
                     <label>その他(+α): <input id="extraBuff${i}" type="number" value="0" step="1"></label>
                     <label>クリティカル威力増加: <input id="critDmgBuff${i}" type="number" value="0" step="1"></label>
+                    <label>固定ダメージ: <input id="fixedDmg${i}" type="number" value="0" step="1"></label>
                 `;
                 buffContainer.appendChild(buffRow);
             }
@@ -331,6 +333,7 @@
             const bulkS = document.getElementById('bulkSkill').value;
             const bulkE = document.getElementById('bulkExtra').value;
             const bulkC = document.getElementById('bulkCrit').value;
+            const bulkF = document.getElementById('bulkFixedDmg').value;
 
             for (let i = 1; i <= coinCount; i++) {
                 document.getElementById(`passiveBuff${i}`).value = bulkP;
@@ -338,6 +341,7 @@
                 document.getElementById(`skillBuff${i}`).value = bulkS;
                 document.getElementById(`extraBuff${i}`).value = bulkE;
                 document.getElementById(`critDmgBuff${i}`).value = bulkC;
+                document.getElementById(`fixedDmg${i}`).value = bulkF;
             }
         }
 
@@ -401,6 +405,7 @@
                 const sBuff = Number(document.getElementById(`skillBuff${i}`).value);
                 const eBuff = Number(document.getElementById(`extraBuff${i}`).value);
                 const cBuff = Number(document.getElementById(`critDmgBuff${i}`).value);
+                const addFixedDmg = Number(document.getElementById(`fixedDmg${i}`).value);
 
                 const buffFrame = 1 + statusCorrection + (pBuff + gBuff + sBuff + eBuff) / 100;
                 const totalCriticalBonus = criticalBonus + (cBuff * 0.1);
@@ -410,6 +415,10 @@
                 const currentSpecial = (i === coinCount) ? special : 0;
                 const base = currentPower * buffFrame + currentSpecial;
                 let dmg = Math.max(1, Math.floor(base * resistFrameFinal));
+
+                if (addFixedDmg > 0) {
+                    dmg += addFixedDmg;
+                }
 
                 let ruptureDmg = 0;
                 if (curRuptureCount > 0 && rupturePotency > 0) {
@@ -432,13 +441,11 @@
                 }
 
                 let statusMsg = [];
-                let hpPercent = (currentHp / maxHp) * 100;
-                let prevHpPercent = (prevHp / maxHp) * 100;
 
                 hpList.forEach(t => {
-                    if (!triggeredThresholds.has(t) && prevHpPercent > t && hpPercent <= t) {
+                    if (!triggeredThresholds.has(t) && prevHp > t && currentHp <= t) {
                         triggeredThresholds.add(t);
-                        statusMsg.push(`【混乱】(区間${t}%)`);
+                        statusMsg.push(`【混乱】(HP${t})`);
                     }
                 });
 
@@ -454,6 +461,7 @@
                     power: currentPower,
                     damage: dmg,
                     ruptureDamage: ruptureDmg,
+                    fixedDamage: addFixedDmg,
                     remainingHp: currentHp,
                     statusMsg: statusMsg.join(" ")
                 });
@@ -542,6 +550,9 @@
 
             result.log.forEach(entry => {
                 text += `コイン${entry.coin}: ${entry.win ? "表" : "裏"} / クリティカル=${entry.crit ? "あり" : "なし"} / 威力=${entry.power} / ダメージ=${entry.damage}`;
+                if (entry.fixedDamage > 0) {
+                    text += ` (内 固定ダメージ=${entry.fixedDamage})`;
+                }
                 if (entry.ruptureDamage > 0) {
                     text += ` (内 破裂=${entry.ruptureDamage})`;
                 }
