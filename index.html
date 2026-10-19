@@ -177,7 +177,7 @@
         <legend>特殊加算</legend>
         <label>
             <input id="cookingEnabled" type="checkbox">
-            《なんでも料理できるさ》（(最大体力 - 現在体力) * 2 の 5% を加算）
+            《なんでも料理できるさ》（(最大体力 - 現在体力) の 5% を加算）
         </label>
     </fieldset>
 
@@ -412,14 +412,14 @@
 
                 let resistFrameFinal = resistFrame + (crit ? totalCriticalBonus : 0);
 
-                // 《なんでも料理できるさ》による特殊加算をコインごとに再計算
+                // 《なんでも料理できるさ》による特殊加算（(最大体力 - 現在体力) の 5%）
                 let cookingSpecial = 0;
                 if (cookingEnabled) {
                     const missingHp = Math.max(0, maxHp - currentHp);
-                    cookingSpecial = Math.floor((missingHp * 2) * 0.05);
+                    cookingSpecial = Math.floor(missingHp * 0.05);
                 }
 
-                const base = currentPower * buffFrame + cookingSpecial;
+                const base = (currentPower + cookingSpecial) * buffFrame;
                 let dmg = Math.max(1, Math.floor(base * resistFrameFinal));
 
                 if (addFixedDmg > 0) {
@@ -557,10 +557,11 @@
             let text = `総ダメージ: ${result.totalDamage}\n\n--- コイン詳細 ---\n`;
 
             result.log.forEach(entry => {
-                text += `コイン${entry.coin}: ${entry.win ? "表" : "裏"} / クリティカル=${entry.crit ? "あり" : "なし"} / 威力=${entry.power} / ダメージ=${entry.damage}`;
+                text += `コイン${entry.coin}: ${entry.win ? "表" : "裏"} / クリティカル=${entry.crit ? "あり" : "なし"} / 威力=${entry.power}`;
                 if (entry.cookingSpecial > 0) {
-                    text += ` (内 料理加算=${entry.cookingSpecial})`;
+                    text += `(+料理${entry.cookingSpecial})`;
                 }
+                text += ` / ダメージ=${entry.damage}`;
                 if (entry.fixedDamage > 0) {
                     text += ` (内 固定ダメージ=${entry.fixedDamage})`;
                 }
