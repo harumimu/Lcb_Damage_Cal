@@ -120,6 +120,10 @@
             <input id="maxHp" type="number" value="200" min="1" step="1">
         </label>
         <label>
+            現在体力（攻撃開始時）:
+            <input id="currentHpInput" type="number" value="200" min="0" step="1">
+        </label>
+        <label>
             混乱区間1 (HP):
             <input id="threshold1" type="number" value="150" min="0" step="1">
         </label>
@@ -177,7 +181,7 @@
         <legend>特殊加算</legend>
         <label>
             <input id="cookingEnabled" type="checkbox">
-            《なんでも料理できるさ》（(最大体力 - 現在体力) の 5% を加算）
+            《なんでも料理できるさ》（攻撃開始時の (最大体力 - 現在体力) の 5% を全コインに加算）
         </label>
     </fieldset>
 
@@ -357,7 +361,7 @@
         function calcCoinDamageSequence(finalPowerBase, resistFrame,
             coinPower, coinPowerUp, coinCount, sp, mode, criticalBonus,
             paralysis, rupturePotency, ruptureCount, poisePotency, poiseCount,
-            maxHp, t1, t2, t3, immortalMode, statusCorrection, cookingEnabled) {
+            maxHp, initialHp, t1, t2, t3, immortalMode, statusCorrection, cookingEnabled) {
 
             let currentPower = finalPowerBase;
             let coinBonus = coinPower + coinPowerUp;
@@ -368,10 +372,17 @@
             let curPoiseCount = poiseCount;
             let remainingParalysis = paralysis;
 
-            let currentHp = maxHp;
+            let currentHp = initialHp;
             let hpList = [t1, t2, t3].filter(t => t > 0).sort((a, b) => b - a);
             let triggeredThresholds = new Set();
             let isDefeated = false;
+
+            // 攻撃開始時のHPをベースに特殊加算値を固定算出
+            let cookingSpecial = 0;
+            if (cookingEnabled) {
+                const missingHp = Math.max(0, maxHp - initialHp);
+                cookingSpecial = Math.floor(missingHp * 0.05);
+            }
 
             for (let i = 1; i <= coinCount; i++) {
                 if (isDefeated) break;
@@ -411,13 +422,6 @@
                 const totalCriticalBonus = criticalBonus + (cBuff * 0.1);
 
                 let resistFrameFinal = resistFrame + (crit ? totalCriticalBonus : 0);
-
-                // 《なんでも料理できるさ》による特殊加算（(最大体力 - 現在体力) の 5%）
-                let cookingSpecial = 0;
-                if (cookingEnabled) {
-                    const missingHp = Math.max(0, maxHp - currentHp);
-                    cookingSpecial = Math.floor(missingHp * 0.05);
-                }
 
                 const base = (currentPower + cookingSpecial) * buffFrame;
                 let dmg = Math.max(1, Math.floor(base * resistFrameFinal));
@@ -524,6 +528,7 @@
             const poiseCount = Number(document.getElementById('poiseCount').value);
 
             const maxHp = Number(document.getElementById('maxHp').value);
+            const initialHp = Number(document.getElementById('currentHpInput').value);
             const t1 = Number(document.getElementById('threshold1').value);
             const t2 = Number(document.getElementById('threshold2').value);
             const t3 = Number(document.getElementById('threshold3').value);
@@ -546,6 +551,7 @@
                 poisePotency,
                 poiseCount,
                 maxHp,
+                initialHp,
                 t1,
                 t2,
                 t3,
