@@ -33,6 +33,20 @@
             margin-top: 10px;
             white-space: pre-wrap;
         }
+
+        .coin-buff-group {
+            border: 1px dashed #ccc;
+            padding: 8px;
+            margin-top: 6px;
+            margin-bottom: 6px;
+        }
+
+        .bulk-buff-box {
+            background-color: #f9f9f9;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+        }
     </style>
 </head>
 <body>
@@ -182,30 +196,19 @@
         </label>
     </fieldset>
 
-    <!-- バフ枠 -->
+    <!-- コイン別バフ枠 -->
     <fieldset>
-        <legend>バフ枠</legend>
-
-        <label>
-            パッシブ:
-            <input id="passiveBuff" type="number" value="0" step="1">
-        </label>
-        <label>
-            ギフト:
-            <input id="giftBuff" type="number" value="0" step="1">
-        </label>
-        <label>
-            スキル効果:
-            <input id="skillBuff" type="number" value="0" step="1">
-        </label>
-        <label>
-            その他(+α):
-            <input id="extraBuff" type="number" value="0" step="1">
-        </label>
-        <label>
-            クリティカル威力増加:
-            <input id="critDmgBuff" type="number" value="0" step="1">
-        </label>
+        <legend>コイン別バフ枠</legend>
+        <div class="bulk-buff-box">
+            <strong>一括変更</strong>
+            <label>パッシブ一括: <input id="bulkPassive" type="number" value="0" step="1"></label>
+            <label>ギフト一括: <input id="bulkGift" type="number" value="0" step="1"></label>
+            <label>スキル効果一括: <input id="bulkSkill" type="number" value="0" step="1"></label>
+            <label>その他(+α)一括: <input id="bulkExtra" type="number" value="0" step="1"></label>
+            <label>クリティカル威力増加一括: <input id="bulkCrit" type="number" value="0" step="1"></label>
+            <button type="button" onclick="applyBulkBuffs()">すべてのコインに一括適用</button>
+        </div>
+        <div id="coinBuffInputs"></div>
     </fieldset>
 
     <!-- 耐性枠 -->
@@ -277,47 +280,80 @@
             return mult >= 1.0 ? (mult - 1.0) : (mult - 1.0) / 2.0;
         }
 
-        /* --- 固定モードの勝敗・クリティカル入力欄生成 --- */
-        function updateFixedCoinInputs() {
+        /* --- 固定モード・コイン別バフの入力欄生成 --- */
+        function updateCoinInputs() {
             const coinCount = Number(document.getElementById('coinCount').value);
             const container = document.getElementById('fixedCoinInputs');
+            const buffContainer = document.getElementById('coinBuffInputs');
 
             container.innerHTML = "";
+            buffContainer.innerHTML = "";
 
             const mode = document.querySelector('input[name="coinMode"]:checked').value;
-            if (mode !== "fixed") return;
 
             for (let i = 1; i <= coinCount; i++) {
-                const row = document.createElement("div");
-                row.innerHTML = `
-              コイン${i}：
-              <select id="coinResult${i}">
-                <option value="win">表</option>
-                <option value="lose">裏</option>
-              </select>
-              クリティカル：
-              <select id="coinCritical${i}">
-                <option value="no">なし</option>
-                <option value="yes">あり</option>
-              </select>
-            `;
-                container.appendChild(row);
+                if (mode === "fixed") {
+                    const row = document.createElement("div");
+                    row.innerHTML = `
+                      コイン${i}：
+                      <select id="coinResult${i}">
+                        <option value="win">表</option>
+                        <option value="lose">裏</option>
+                      </select>
+                      クリティカル：
+                      <select id="coinCritical${i}">
+                        <option value="no">なし</option>
+                        <option value="yes">あり</option>
+                      </select>
+                    `;
+                    container.appendChild(row);
+                }
+
+                const buffRow = document.createElement("div");
+                buffRow.className = "coin-buff-group";
+                buffRow.innerHTML = `
+                    <strong>コイン${i} バフ枠</strong>
+                    <label>パッシブ: <input id="passiveBuff${i}" type="number" value="0" step="1"></label>
+                    <label>ギフト: <input id="giftBuff${i}" type="number" value="0" step="1"></label>
+                    <label>スキル効果: <input id="skillBuff${i}" type="number" value="0" step="1"></label>
+                    <label>その他(+α): <input id="extraBuff${i}" type="number" value="0" step="1"></label>
+                    <label>クリティカル威力増加: <input id="critDmgBuff${i}" type="number" value="0" step="1"></label>
+                `;
+                buffContainer.appendChild(buffRow);
             }
         }
 
-        document.getElementById('coinCount').addEventListener('change', updateFixedCoinInputs);
+        /* --- 一括適用関数 --- */
+        function applyBulkBuffs() {
+            const coinCount = Number(document.getElementById('coinCount').value);
+            const bulkP = document.getElementById('bulkPassive').value;
+            const bulkG = document.getElementById('bulkGift').value;
+            const bulkS = document.getElementById('bulkSkill').value;
+            const bulkE = document.getElementById('bulkExtra').value;
+            const bulkC = document.getElementById('bulkCrit').value;
+
+            for (let i = 1; i <= coinCount; i++) {
+                document.getElementById(`passiveBuff${i}`).value = bulkP;
+                document.getElementById(`giftBuff${i}`).value = bulkG;
+                document.getElementById(`skillBuff${i}`).value = bulkS;
+                document.getElementById(`extraBuff${i}`).value = bulkE;
+                document.getElementById(`critDmgBuff${i}`).value = bulkC;
+            }
+        }
+
+        document.getElementById('coinCount').addEventListener('change', updateCoinInputs);
         document.querySelectorAll('input[name="coinMode"]').forEach(el => {
-            el.addEventListener('change', updateFixedCoinInputs);
+            el.addEventListener('change', updateCoinInputs);
         });
 
         // 初期化時にも実行
-        updateFixedCoinInputs();
+        updateCoinInputs();
 
         /* --- コイン式ダメージ計算 --- */
-        function calcCoinDamageSequence(finalPowerBase, buffFrame, special, resistFrame,
-            coinPower, coinPowerUp, coinCount, sp, mode, totalCriticalBonus,
+        function calcCoinDamageSequence(finalPowerBase, special, resistFrame,
+            coinPower, coinPowerUp, coinCount, sp, mode, criticalBonus,
             paralysis, rupturePotency, ruptureCount, poisePotency, poiseCount,
-            maxHp, t1, t2, t3, immortalMode) {
+            maxHp, t1, t2, t3, immortalMode, statusCorrection) {
 
             let currentPower = finalPowerBase;
             let coinBonus = coinPower + coinPowerUp;
@@ -360,6 +396,15 @@
                     }
                 }
 
+                const pBuff = Number(document.getElementById(`passiveBuff${i}`).value);
+                const gBuff = Number(document.getElementById(`giftBuff${i}`).value);
+                const sBuff = Number(document.getElementById(`skillBuff${i}`).value);
+                const eBuff = Number(document.getElementById(`extraBuff${i}`).value);
+                const cBuff = Number(document.getElementById(`critDmgBuff${i}`).value);
+
+                const buffFrame = 1 + statusCorrection + (pBuff + gBuff + sBuff + eBuff) / 100;
+                const totalCriticalBonus = criticalBonus + (cBuff * 0.1);
+
                 let resistFrameFinal = resistFrame + (crit ? totalCriticalBonus : 0);
 
                 const currentSpecial = (i === coinCount) ? special : 0;
@@ -381,7 +426,7 @@
                 let prevHp = currentHp;
                 
                 if (immortalMode) {
-                    currentHp -= dmg; // HPがマイナスになることを許容
+                    currentHp -= dmg;
                 } else {
                     currentHp = Math.max(0, currentHp - dmg);
                 }
@@ -433,14 +478,6 @@
             const dmgUp = Number(document.getElementById('dmgUp').value);
             const statusCorrection = (0.1 * dmgUp) - (0.1 * protect);
 
-            const buffFrame =
-                1 +
-                statusCorrection +
-                (Number(document.getElementById('passiveBuff').value) +
-                Number(document.getElementById('giftBuff').value) +
-                Number(document.getElementById('skillBuff').value) +
-                Number(document.getElementById('extraBuff').value)) / 100;
-
             const typeCorrection = resistToCorrection(Number(document.getElementById('typeResist').value));
             const sinCorrection = resistToCorrection(Number(document.getElementById('sinResist').value));
             const resistCorrection = typeCorrection + sinCorrection;
@@ -456,8 +493,6 @@
 
             const isCritical = document.getElementById('isCritical').checked;
             const criticalBonus = Number(document.getElementById('criticalBonus').value);
-            const critDmgBuff = Number(document.getElementById('critDmgBuff').value);
-            const totalCriticalBonus = criticalBonus + (critDmgBuff * 0.1);
 
             const resistFrame =
                 1 +
@@ -482,7 +517,6 @@
 
             const result = calcCoinDamageSequence(
                 finalPowerBase,
-                buffFrame,
                 special,
                 resistFrame,
                 coinPower,
@@ -490,7 +524,7 @@
                 coinCount,
                 sp,
                 mode,
-                totalCriticalBonus,
+                criticalBonus,
                 paralysis,
                 rupturePotency,
                 ruptureCount,
@@ -500,7 +534,8 @@
                 t1,
                 t2,
                 t3,
-                immortalMode
+                immortalMode,
+                statusCorrection
             );
 
             let text = `総ダメージ: ${result.totalDamage}\n\n--- コイン詳細 ---\n`;
