@@ -172,6 +172,15 @@
         </label>
     </fieldset>
 
+    <!-- 特殊加算（《なんでも料理できるさ》） -->
+    <fieldset>
+        <legend>特殊加算</legend>
+        <label>
+            <input id="cookingEnabled" type="checkbox">
+            《なんでも料理できるさ》（(最大体力 - 現在体力) * 2 の 5% を加算）
+        </label>
+    </fieldset>
+
     <!-- ステータス補正 -->
     <fieldset>
         <legend>ステータス補正（保護・脆弱・増加・減少）</legend>
@@ -187,9 +196,9 @@
         </label>
     </fieldset>
 
-    <!-- コイン別バフ枠・追加効果 -->
+    <!-- コイン別バフ枠・固定ダメージ -->
     <fieldset>
-        <legend>コイン別バフ枠・追加効果</legend>
+        <legend>コイン別バフ枠・固定ダメージ</legend>
         <div class="bulk-buff-box">
             <strong>一括変更</strong>
             <label>パッシブ一括: <input id="bulkPassive" type="number" value="0" step="1"></label>
@@ -197,7 +206,6 @@
             <label>スキル効果一括: <input id="bulkSkill" type="number" value="0" step="1"></label>
             <label>その他(+α)一括: <input id="bulkExtra" type="number" value="0" step="1"></label>
             <label>クリティカル威力増加一括: <input id="bulkCrit" type="number" value="0" step="1"></label>
-            <label>特殊加算一括: <input id="bulkSpecial" type="number" value="0" step="1"></label>
             <label>固定ダメージ一括: <input id="bulkFixedDmg" type="number" value="0" step="1"></label>
             <button type="button" onclick="applyBulkBuffs()">すべてのコインに一括適用</button>
         </div>
@@ -311,7 +319,6 @@
                     <label>スキル効果: <input id="skillBuff${i}" type="number" value="0" step="1"></label>
                     <label>その他(+α): <input id="extraBuff${i}" type="number" value="0" step="1"></label>
                     <label>クリティカル威力増加: <input id="critDmgBuff${i}" type="number" value="0" step="1"></label>
-                    <label>特殊加算: <input id="special${i}" type="number" value="0" step="1"></label>
                     <label>固定ダメージ: <input id="fixedDmg${i}" type="number" value="0" step="1"></label>
                 `;
                 buffContainer.appendChild(buffRow);
@@ -326,7 +333,6 @@
             const bulkS = document.getElementById('bulkSkill').value;
             const bulkE = document.getElementById('bulkExtra').value;
             const bulkC = document.getElementById('bulkCrit').value;
-            const bulkSp = document.getElementById('bulkSpecial').value;
             const bulkF = document.getElementById('bulkFixedDmg').value;
 
             for (let i = 1; i <= coinCount; i++) {
@@ -335,7 +341,6 @@
                 document.getElementById(`skillBuff${i}`).value = bulkS;
                 document.getElementById(`extraBuff${i}`).value = bulkE;
                 document.getElementById(`critDmgBuff${i}`).value = bulkC;
-                document.getElementById(`special${i}`).value = bulkSp;
                 document.getElementById(`fixedDmg${i}`).value = bulkF;
             }
         }
@@ -352,7 +357,7 @@
         function calcCoinDamageSequence(finalPowerBase, resistFrame,
             coinPower, coinPowerUp, coinCount, sp, mode, criticalBonus,
             paralysis, rupturePotency, ruptureCount, poisePotency, poiseCount,
-            maxHp, t1, t2, t3, immortalMode, statusCorrection) {
+            maxHp, t1, t2, t3, immortalMode, statusCorrection, cookingEnabled) {
 
             let currentPower = finalPowerBase;
             let coinBonus = coinPower + coinPowerUp;
@@ -400,7 +405,6 @@
                 const sBuff = Number(document.getElementById(`skillBuff${i}`).value);
                 const eBuff = Number(document.getElementById(`extraBuff${i}`).value);
                 const cBuff = Number(document.getElementById(`critDmgBuff${i}`).value);
-                const addSpecial = Number(document.getElementById(`special${i}`).value);
                 const addFixedDmg = Number(document.getElementById(`fixedDmg${i}`).value);
 
                 const buffFrame = 1 + statusCorrection + (pBuff + gBuff + sBuff + eBuff) / 100;
@@ -408,7 +412,14 @@
 
                 let resistFrameFinal = resistFrame + (crit ? totalCriticalBonus : 0);
 
-                const base = currentPower * buffFrame + addSpecial;
+                // 《なんでも料理できるさ》による特殊加算をコインごとに再計算
+                let cookingSpecial = 0;
+                if (cookingEnabled) {
+                    const missingHp = Math.max(0, maxHp - currentHp);
+                    cookingSpecial = Math.floor((missingHp * 2) * 0.05);
+                }
+
+                const base = currentPower * buffFrame + cookingSpecial;
                 let dmg = Math.max(1, Math.floor(base * resistFrameFinal));
 
                 if (addFixedDmg > 0) {
@@ -455,8 +466,8 @@
                     crit: crit,
                     power: currentPower,
                     damage: dmg,
+                    cookingSpecial: cookingSpecial,
                     ruptureDamage: ruptureDmg,
-                    specialDamage: addSpecial,
                     fixedDamage: addFixedDmg,
                     remainingHp: currentHp,
                     statusMsg: statusMsg.join(" ")
@@ -518,6 +529,8 @@
             const t3 = Number(document.getElementById('threshold3').value);
             const immortalMode = document.getElementById('immortalMode').checked;
 
+            const cookingEnabled = document.getElementById('cookingEnabled').checked;
+
             const result = calcCoinDamageSequence(
                 finalPowerBase,
                 resistFrame,
@@ -537,15 +550,16 @@
                 t2,
                 t3,
                 immortalMode,
-                statusCorrection
+                statusCorrection,
+                cookingEnabled
             );
 
             let text = `総ダメージ: ${result.totalDamage}\n\n--- コイン詳細 ---\n`;
 
             result.log.forEach(entry => {
                 text += `コイン${entry.coin}: ${entry.win ? "表" : "裏"} / クリティカル=${entry.crit ? "あり" : "なし"} / 威力=${entry.power} / ダメージ=${entry.damage}`;
-                if (entry.specialDamage > 0) {
-                    text += ` (内 特殊加算=${entry.specialDamage})`;
+                if (entry.cookingSpecial > 0) {
+                    text += ` (内 料理加算=${entry.cookingSpecial})`;
                 }
                 if (entry.fixedDamage > 0) {
                     text += ` (内 固定ダメージ=${entry.fixedDamage})`;
